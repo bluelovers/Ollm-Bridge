@@ -7,7 +7,7 @@ if %errorLevel% == 0 (
     echo Already running as administrator...
 ) else (
     echo Requesting administrator privileges...
-    powershell -Command "Start-Process cmd -ArgumentList '/c cd /d \"%~dp0\" && Ollm_Bridge_v0.6.ps1' -Verb RunAs"
+    powershell -Command "Start-Process powershell -Verb RunAs -ArgumentList '-File \"%~dp0Ollm_Bridge_v0.6.ps1'"
     goto end
 )
 
@@ -15,7 +15,7 @@ if %errorLevel% == 0 (
 echo.
 echo Running Ollm Bridge v0.6...
 echo.
-powershell -ExecutionPolicy Bypass -File "Ollm_Bridge_v0.6.ps1"
+powershell -ExecutionPolicy Bypass -File "%~dp0Ollm_Bridge_v0.6.ps1"
 
 :end
 echo Ollm Bridge execution completed.
