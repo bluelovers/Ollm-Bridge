@@ -3,6 +3,13 @@
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 
+# Parameter parsing for SAFE_MODE
+# 解析 SAFE_MODE 參數
+param(
+    [Parameter(Mandatory=$false)]
+    $SafeMode = $null
+)
+
 # Ollm Bridge v 0.6
 # Ollm Bridge aims to create a structure of directories and symlinks to make Ollama models more easily accessible to LMStudio users.
 # 旨在創建目錄結構和符號鏈接，使 Ollama 模型更容易被 LMStudio 用戶訪問
@@ -45,6 +52,22 @@ $output_target_dir = "$env:USERPROFILE\publicmodels\lmstudio"
 # 安全開關，控制目錄刪除行為
 # $null/未設定 = 手動確認, $true = 自動跳過刪除, $false = 直接執行
 $SAFE_MODE = $null
+
+# Set SAFE_MODE based on parameter
+# 根據參數設定 SAFE_MODE
+if ($null -eq $SafeMode) {
+    # No parameter provided, use default $null
+    # 未提供參數，使用預設 $null
+    $SAFE_MODE = $null
+} elseif ($SafeMode -eq "null") {
+    # Explicit null parameter
+    # 明確傳遞 null 參數
+    $SAFE_MODE = $null
+} else {
+    # Use the boolean value directly
+    # 直接使用布林值
+    $SAFE_MODE = [bool]$SafeMode
+}
 
 # Function to determine deletion action based on SAFE_MODE
 # 根據 SAFE_MODE 決定刪除操作的函數
@@ -156,23 +179,35 @@ function Write-StatusMessage {
     }
 }
 
-# Display safety mode status
-# 顯示安全模式狀態
+# Display safety mode status and parameter usage
+# 顯示安全模式狀態和參數使用方式
 Write-Host ""
 Write-Host "Safety Configuration:" -ForegroundColor Cyan
 Write-Host ""
 if ($null -eq $SAFE_MODE) {
-    Write-StatusMessage "Warning" "SAFE MODE NOT SET - Manual confirmation required"
+    Write-StatusMessage "Warning" "SAFE MODE IS NULL - Manual confirmation required"
+    Write-Host "  Command line: .\Ollm_Bridge_v0.6.ps1 -SafeMode null" -ForegroundColor Gray
     Write-Host "  Set `$SAFE_MODE = `$true to skip deletion" -ForegroundColor Gray
     Write-Host "  Set `$SAFE_MODE = `$false for automatic operations" -ForegroundColor Gray
 } elseif ($SAFE_MODE -eq $true) {
-    Write-StatusMessage "Warning" "SAFE MODE ENABLED - Directory deletion will be skipped"
+    Write-StatusMessage "Warning" "SAFE MODE IS TRUE - Directory deletion will be skipped"
+    Write-Host "  Command line: .\Ollm_Bridge_v0.6.ps1 -SafeMode true" -ForegroundColor Gray
     Write-Host "  Set `$SAFE_MODE = `$null for manual confirmation" -ForegroundColor Gray
     Write-Host "  Set `$SAFE_MODE = `$false for automatic operations" -ForegroundColor Gray
 } else {
-    Write-StatusMessage "Warning" "SAFE MODE DISABLED - Operations will run without confirmation"
+    Write-StatusMessage "Warning" "SAFE MODE IS FALSE - Operations will run without confirmation"
+    Write-Host "  Command line: .\Ollm_Bridge_v0.6.ps1 -SafeMode false" -ForegroundColor Gray
     Write-Host "  Set `$SAFE_MODE = `$null for manual confirmation" -ForegroundColor Gray
     Write-Host "  Set `$SAFE_MODE = `$true to skip deletion" -ForegroundColor Gray
+}
+
+if ($null -ne $SafeMode) {
+    Write-Host "Parameter used: -SafeMode $SafeMode" -ForegroundColor Green
+} else {
+    Write-Host "No parameter provided. Usage examples:" -ForegroundColor Yellow
+    Write-Host "  .\Ollm_Bridge_v0.6.ps1 -SafeMode true" -ForegroundColor White
+    Write-Host "  .\Ollm_Bridge_v0.6.ps1 -SafeMode false" -ForegroundColor White
+    Write-Host "  .\Ollm_Bridge_v0.6.ps1 -SafeMode null" -ForegroundColor White
 }
 Write-Host ""
 
