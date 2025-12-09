@@ -2,7 +2,12 @@
 # Ollm Bridge aims to create a structure of directories and symlinks to make Ollama models more easily accessible to LMStudio users.
 
 # Define the directory variables
-$manifest_dir = "$env:USERPROFILE\.ollama\models\manifests\registry.ollama.ai"
+$manifest_dirs = @(
+    "$env:USERPROFILE\.ollama\models\manifests\registry.ollama.ai"
+    # Add additional manifest directory paths here if needed
+    # Example: "D:\AlternativeOllama\models\manifests\registry.ollama.ai"
+    "$env:USERPROFILE\.ollama\models\manifests\hf.co"
+)
 $blob_dir = "$env:USERPROFILE\.ollama\models\blobs"
 $publicModels_dir = "$env:USERPROFILE\publicmodels"
 
@@ -13,7 +18,8 @@ $lmstudio_target_dir = "$publicModels_dir\lmstudio"
 Write-Host ""
 Write-Host "Confirming Directories:"
 Write-Host ""
-Write-Host "Manifest Directory: $manifest_dir"
+Write-Host "Manifest Directories:"
+$manifest_dirs | ForEach-Object { Write-Host "  - $_" }
 Write-Host "Blob Directory: $blob_dir"
 Write-Host "Public Models Directory: $publicModels_dir"
 Write-Host "LMStudio Model Structure Directory: $lmstudio_target_dir"
@@ -36,16 +42,24 @@ if (Test-Path $publicModels_dir) {
 }
 
 
-# Explore the manifest directory and record the manifest file locations
+# Explore all manifest directories and record the manifest file locations
 Write-Host ""
-Write-Host "Exploring Manifest Directory:"
+Write-Host "Exploring Manifest Directories:"
 Write-Host ""
-$files = Get-ChildItem -Path $manifest_dir -Recurse -Force | Where-Object {$_.PSIsContainer -eq $false}
 $manifestLocations = @()
 
-foreach ($file in $files) {
-    $path = "$($file.DirectoryName)\$($file.Name)"
-    $manifestLocations += $path
+foreach ($manifest_dir in $manifest_dirs) {
+    if (Test-Path $manifest_dir) {
+        Write-Host "Processing directory: $manifest_dir"
+        $files = Get-ChildItem -Path $manifest_dir -Recurse -Force | Where-Object {$_.PSIsContainer -eq $false}
+        
+        foreach ($file in $files) {
+            $path = "$($file.DirectoryName)\$($file.Name)"
+            $manifestLocations += $path
+        }
+    } else {
+        Write-Host "Warning: Directory not found - $manifest_dir"
+    }
 }
 
 Write-Host ""
