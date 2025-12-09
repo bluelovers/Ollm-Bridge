@@ -41,6 +41,80 @@ $blob_dir = "$ollama_base_dir\blobs"
 # 輸出目標目錄：存儲按 LMStudio 兼容結構組織的符號鏈接
 $output_target_dir = "$env:USERPROFILE\publicmodels\lmstudio"
 
+# Helper function to convert sha256 digest to blob path
+# 輔助函數：將 sha256 摘要轉換為 blob 路徑
+function Convert-DigestToBlobPath {
+    param([string]$digest)
+    return "$blob_dir\$('sha256-' + $($digest.Replace('sha256:', '')))"
+}
+
+# Helper function to display colored model info
+# 輔助函數：顯示彩色模型信息
+function Show-ModelInfo {
+    param([string]$modelName, [string]$modelQuant, [string]$modelExt, [string]$modelTrainedOn)
+    Write-Host "Model Name: " -NoNewline; Write-Host $modelName -ForegroundColor Green
+    Write-Host "Model Info: Quant = " -NoNewline; Write-Host $modelQuant -ForegroundColor Cyan -NoNewline; 
+    Write-Host ", Format = " -NoNewline; Write-Host $modelExt -ForegroundColor Cyan -NoNewline; 
+    Write-Host ", Parameters Trained = " -NoNewline; Write-Host $modelTrainedOn -ForegroundColor Cyan
+}
+
+# Helper function to display directory configuration
+# 輔助函數：顯示目錄配置信息
+function Show-DirectoryConfig {
+    Write-Host "Ollama Base Directory: $ollama_base_dir" -ForegroundColor White
+    if ($env:OLLAMA_MODELS) {
+        Write-Host "  (Using custom OLLAMA_MODELS environment variable)" -ForegroundColor Yellow
+        Write-Host "    Path: $env:OLLAMA_MODELS" -ForegroundColor Gray
+    } else {
+        Write-Host "  (Using default user profile directory)" -ForegroundColor Gray
+    }
+    Write-Host "Manifest Directories:" -ForegroundColor Yellow
+    $manifest_dirs | ForEach-Object { Write-Host "  - $_" -ForegroundColor White }
+    Write-Host "Blob Directory: $blob_dir" -ForegroundColor White
+    Write-Host "Output Target LMStudio Model Structure Directory: $output_target_dir" -ForegroundColor White
+}
+
+# Helper function to extract model configuration
+# 輔助函數：提取模型配置信息
+function Get-ModelConfig {
+    param([string]$modelConfigPath)
+    
+    try {
+        # Extract variables from $modelConfig
+        # 從模型配置文件中提取關鍵變數：量化級別、文件格式和模型類型
+        $config = Get-Content -Path $modelConfigPath | ConvertFrom-Json
+        return [PSCustomObject]@{
+            # 量化級別（如 Q4_K_M、Q8_0 等）
+            Quant = $config.'file_type'
+            # 模型文件格式（如 gguf、safetensors 等）
+            Ext = $config.'model_format'
+            # 模型參數規模（如 7B、13B、70B 等）
+            TrainedOn = $config.'model_type'
+        }
+    } catch {
+        Write-Host "[-] Failed to parse model config: $($_.Exception.Message)" -ForegroundColor Red
+        return $null
+    }
+}
+
+# Helper function to display status messages with consistent formatting
+# 輔助函數：顯示統一格式的狀態訊息
+function Write-StatusMessage {
+    param(
+        [ValidateSet("Success", "Warning", "Error", "Info", "Processing")]
+        [string]$Type,
+        [string]$Message
+    )
+    
+    switch ($Type) {
+        "Success" { Write-Host "[+] $Message" -ForegroundColor Green }
+        "Warning" { Write-Host "[!] $Message" -ForegroundColor Yellow }
+        "Error" { Write-Host "[-] $Message" -ForegroundColor Red }
+        "Info" { Write-Host "[*] $Message" -ForegroundColor White }
+        "Processing" { Write-Host "[~] $Message" -ForegroundColor Cyan }
+    }
+}
+
 # Check administrative privileges for symbolic link creation
 # 檢查創建符號鏈接所需的系統權限
 Write-Host ""
@@ -51,12 +125,12 @@ $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
 
 if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-    Write-Host "[!] Warning: Not running as Administrator" -ForegroundColor Yellow
+    Write-StatusMessage "Warning" "Not running as Administrator"
     Write-Host "  Symbolic link creation may fail without elevated privileges." -ForegroundColor Yellow
     Write-Host "  Consider running this script as Administrator." -ForegroundColor Yellow
     Write-Host ""
 } else {
-    Write-Host "[+] Running with Administrator privileges" -ForegroundColor Green
+    Write-StatusMessage "Success" "Running with Administrator privileges"
     Write-Host ""
 }
 
@@ -82,7 +156,7 @@ try {
     
     # Verify the link was created successfully
     if ((Get-Item $testLinkPath).LinkType -eq "SymbolicLink") {
-        Write-Host "[+] Symbolic link creation test passed" -ForegroundColor Green
+        Write-StatusMessage "Success" "Symbolic link creation test passed"
         # Clean up test files
         Remove-Item -Path $testLinkPath -Force -ErrorAction SilentlyContinue | Out-Null
         Remove-Item -Path $testTargetPath -Force -ErrorAction SilentlyContinue | Out-Null
@@ -90,7 +164,7 @@ try {
         throw "Created link is not a symbolic link"
     }
 } catch {
-    Write-Host "[-] Symbolic link creation test failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-StatusMessage "Error" "Symbolic link creation test failed: $($_.Exception.Message)"
     Write-Host "  Enable Developer Mode or run as Administrator to create symbolic links." -ForegroundColor Yellow
     Write-Host ""
     Write-Host "Continue anyway? (Press Enter to continue, Ctrl+C to exit)" -ForegroundColor Cyan
@@ -103,17 +177,7 @@ Write-Host ""
 Write-Host ""
 Write-Host "Confirming Directories:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Ollama Base Directory: $ollama_base_dir" -ForegroundColor White
-if ($env:OLLAMA_MODELS) {
-    Write-Host "  (Using custom OLLAMA_MODELS environment variable)" -ForegroundColor Yellow
-    Write-Host "    Path: $env:OLLAMA_MODELS" -ForegroundColor Gray
-} else {
-    Write-Host "  (Using default user profile directory)" -ForegroundColor Gray
-}
-Write-Host "Manifest Directories:" -ForegroundColor Yellow
-$manifest_dirs | ForEach-Object { Write-Host "  - $_" -ForegroundColor White }
-Write-Host "Blob Directory: $blob_dir" -ForegroundColor White
-Write-Host "Output Target LMStudio Model Structure Directory: $output_target_dir" -ForegroundColor White
+Show-DirectoryConfig
 
 # Explore all manifest directories and record the manifest file locations
 # 掃描所有 manifest 目錄並記錄有效的 manifest 文件位置
@@ -210,51 +274,33 @@ foreach ($manifest in $manifestLocations) {
     $json = Get-Content -Path $manifest
     $obj = ConvertFrom-Json -InputObject $json
 
-    # Check if the digest is a child of "config"
-    # 檢查 digest 是否為 config 的子屬性，並提取模型配置文件路徑
-    if ($obj.config.digest) {
-        # Replace "sha256:" with "sha256-" in the config digest
-        # 將配置摘要中的 "sha256:" 替換為 "sha256-" 以構建實際文件路徑
-        $modelConfig = "$blob_dir\$('sha256-' + $($obj.config.digest.Replace('sha256:', '')))"
-    }
-
-    # 遍歷所有層（layers），根據 mediaType 提取不同類型文件的路徑
+    # Extract file paths from digests
+    # 從摘要中提取文件路徑
+    $modelConfig = Convert-DigestToBlobPath $obj.config.digest
+    
+    # Extract layer file paths
+    # 提取層文件路徑
     foreach ($layer in $obj.layers) {
-        # If mediaType ends in "model", build $modelfile
-        # 如果 mediaType 以 "model" 結尾，構建模型文件路徑
         if ($layer.mediaType -like "*model") {
-            # Replace "sha256:" with "sha256-" in the model digest
-            # 將模型摘要中的 "sha256:" 替換為 "sha256-" 來構建實際文件路徑
-            $modelFile = "$blob_dir\$('sha256-' + $($layer.digest.Replace('sha256:', '')))"
-        }
-           
-        # If mediaType ends in "template", build $modelTemplate
-        # 如果 mediaType 以 "template" 結尾，構建模板文件路徑
-        if ($layer.mediaType -like "*template") {
-            # Replace "sha256:" with "sha256-" in the template digest
-            # 將模板摘要中的 "sha256:" 替換為 "sha256-" 來構建實際文件路徑
-            $modelTemplate = "$blob_dir\$('sha256-' + $($layer.digest.Replace('sha256:', '')))"
-        }
-           
-        # If mediaType ends in "params", build $modelParams
-        # 如果 mediaType 以 "params" 結尾，構建參數文件路徑
-        if ($layer.mediaType -like "*params") {
-            # Replace "sha256:" with "sha256-" in the parameter digest
-            # 將參數摘要中的 "sha256:" 替換為 "sha256-" 來構建實際文件路徑
-            $modelParams = "$blob_dir\$('sha256-' + $($layer.digest.Replace('sha256:', '')))"
+            $modelFile = Convert-DigestToBlobPath $layer.digest
+        } elseif ($layer.mediaType -like "*template") {
+            $modelTemplate = Convert-DigestToBlobPath $layer.digest
+        } elseif ($layer.mediaType -like "*params") {
+            $modelParams = Convert-DigestToBlobPath $layer.digest
         }
     }
 
-    # Extract variables from $modelConfig
-    # 從模型配置文件中提取關鍵變數：量化級別、文件格式和模型類型
-    $modelConfigObj = ConvertFrom-Json (Get-Content -Path $modelConfig)
-
-    # 量化級別（如 Q4_K_M、Q8_0 等）
-    $modelQuant = $modelConfigObj.'file_type'
-    # 模型文件格式（如 gguf、safetensors 等）
-    $modelExt = $modelConfigObj.'model_format'
-    # 模型參數規模（如 7B、13B、70B 等）
-    $modelTrainedOn = $modelConfigObj.'model_type'
+    # Extract model configuration
+    # 提取模型配置信息
+    $modelConfigObj = Get-ModelConfig $modelConfig
+    if (-not $modelConfigObj) {
+        Write-Host "[-] Skipping manifest due to config parsing failure: $manifest" -ForegroundColor Red
+        continue
+    }
+    
+    $modelQuant = $modelConfigObj.Quant
+    $modelExt = $modelConfigObj.Ext
+    $modelTrainedOn = $modelConfigObj.TrainedOn
 
     # Get the parent directory of $manifest
     # 獲取 manifest 文件的父目錄，用於提取模型名稱
@@ -265,10 +311,7 @@ foreach ($manifest in $manifestLocations) {
     $modelName = (Get-Item -Path $parentDir).Name
 
     Write-Host ""
-    Write-Host "Model Name: " -NoNewline; Write-Host $modelName -ForegroundColor Green
-    Write-Host "Model Info: Quant = " -NoNewline; Write-Host $modelQuant -ForegroundColor Cyan -NoNewline; 
-    Write-Host ", Format = " -NoNewline; Write-Host $modelExt -ForegroundColor Cyan -NoNewline; 
-    Write-Host ", Parameters Trained = " -NoNewline; Write-Host $modelTrainedOn -ForegroundColor Cyan
+    Show-ModelInfo $modelName $modelQuant $modelExt $modelTrainedOn
 
     # Check if the subdirectory exists and create it if necessary
     # 檢查模型子目錄是否存在，必要時創建
@@ -291,15 +334,15 @@ foreach ($manifest in $manifestLocations) {
     # Check if symbolic link already exists
     # 檢查符號鏈接是否已經存在
     if (Test-Path $symlinkPath) {
-        Write-Host "[!] Warning: Model already exists, skipping creation - $name" -ForegroundColor Yellow
+        Write-StatusMessage "Warning" "Model already exists, skipping creation - $name"
         
         # Get existing symlink target for comparison
         # 獲取現有符號鏈接的目標進行比較
         $existingTarget = (Get-Item $symlinkPath).Target
         
         if ($existingTarget -ne $modelFile) {
-            Write-Host "[!] Different source detected - Existing: $existingTarget" -ForegroundColor Red
-            Write-Host "[!] New source: $modelFile" -ForegroundColor Red
+            Write-StatusMessage "Error" "Different source detected - Existing: $existingTarget"
+            Write-StatusMessage "Error" "New source: $modelFile"
             
             # Add to duplicate models log
             # 添加到重複模型日誌
@@ -316,7 +359,7 @@ foreach ($manifest in $manifestLocations) {
         try {
             New-Item -ItemType SymbolicLink -Path $symlinkPath -Value $modelFile -ErrorAction Stop | Out-Null
         } catch {
-            Write-Host "[-] Failed to create symbolic link: $($_.Exception.Message)" -ForegroundColor Red
+            Write-StatusMessage "Error" "Failed to create symbolic link: $($_.Exception.Message)"
         }
     }
     Write-Host ""
