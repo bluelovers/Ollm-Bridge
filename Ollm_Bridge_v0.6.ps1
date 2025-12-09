@@ -165,7 +165,7 @@ function Get-ModelConfig {
 # 輔助函數：顯示統一格式的狀態訊息
 function Write-StatusMessage {
     param(
-        [ValidateSet("Success", "Warning", "Error", "Info", "Processing")]
+        [ValidateSet("Success", "Warning", "Error", "Info", "Info2", "Processing")]
         [string]$Type,
         [string]$Message
     )
@@ -175,6 +175,7 @@ function Write-StatusMessage {
         "Warning" { Write-Host "[!] $Message" -ForegroundColor Yellow }
         "Error" { Write-Host "[-] $Message" -ForegroundColor Red }
         "Info" { Write-Host "[*] $Message" -ForegroundColor White }
+        "Info2" { Write-Host "[*] $Message" -ForegroundColor Gray }
         "Processing" { Write-Host "[~] $Message" -ForegroundColor Cyan }
     }
 }
@@ -444,17 +445,17 @@ foreach ($manifest in $manifestLocations) {
     $symlinkPath = "$output_target_dir\$modelName\$($name)"
 
     Write-Host ""
-    Write-Host "Creating symbolic link for $name"
+    Write-Host "Creating symbolic link for " -NoNewline; Write-Host $name -ForegroundColor Green;
     Write-Host "$modelFile" -ForegroundColor Gray
     
     # Check if symbolic link already exists
     # 檢查符號鏈接是否已經存在
     if (Test-Path $symlinkPath) {
-        Write-StatusMessage "Warning" "Model already exists, skipping creation - $name"
-        
         # Get existing symlink target for comparison
         # 獲取現有符號鏈接的目標進行比較
         $existingTarget = (Get-Item $symlinkPath).Target
+
+        Write-Host ""
         
         if ($existingTarget -ne $modelFile) {
             Write-StatusMessage "Error" "Different source detected - Existing: $existingTarget"
@@ -470,11 +471,14 @@ foreach ($manifest in $manifestLocations) {
                 CreatedTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
             }
             $duplicateModels += $duplicateInfo
+        } else {
+            Write-StatusMessage "Info2" "Model already exists, skipping creation - $name"
         }
     } else {
         try {
             New-Item -ItemType SymbolicLink -Path $symlinkPath -Value $modelFile -ErrorAction Stop | Out-Null
         } catch {
+            Write-Host ""
             Write-StatusMessage "Error" "Failed to create symbolic link: $($_.Exception.Message)"
         }
     }
