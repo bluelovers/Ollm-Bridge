@@ -8,7 +8,7 @@ if %errorLevel% == 0 (
 ) else (
     echo Requesting administrator privileges...
     powershell -Command "Start-Process cmd -ArgumentList '/c cd /d \"%~dp0\" && Ollm_Bridge_v0.6.ps1' -Verb RunAs"
-    goto :eof
+    goto end
 )
 
 :: Run the PowerShell script
@@ -16,4 +16,8 @@ echo.
 echo Running Ollm Bridge v0.6...
 echo.
 powershell -ExecutionPolicy Bypass -File "Ollm_Bridge_v0.6.ps1"
-pause
+
+:end
+echo Ollm Bridge execution completed.
+echo Press any key to exit...
+pause > nul
