@@ -46,7 +46,7 @@ $blob_dir = "$ollama_base_dir\blobs"
 
 # This path stores symbolic links to model files organized in LMStudio-compatible structure
 # 輸出目標目錄：存儲按 LMStudio 兼容結構組織的符號鏈接
-$output_target_dir = "$env:USERPROFILE\publicmodels\lmstudio"
+$output_target_dir = "$env:USERPROFILE\publicmodels\ollama"
 
 # Safety switch to control directory deletion behavior
 # 安全開關，控制目錄刪除行為
@@ -366,6 +366,13 @@ Write-Host ""
 $logFile = "$output_target_dir\log.md"
 $duplicateModels = @()  # 存儲重複模型資訊
 
+# Initialize counters for execution statistics
+# 初始化執行統計計數器
+$successCount = 0
+$skippedCount = 0
+$errorCount = 0
+$successFiles = @()  # 存儲成功建立的檔案名稱
+
 # 遍歷每個有效的 manifest 文件
 $totalManifests = $manifestLocations.Count
 $currentCount = 0
@@ -456,6 +463,7 @@ foreach ($manifest in $manifestLocations) {
         if ($existingTarget -ne $modelFile) {
             Write-StatusMessage "Error" "Different source detected - Existing: $existingTarget"
             Write-StatusMessage "Error" "New source: $modelFile"
+            $errorCount++
             
             # Add to duplicate models log
             # 添加到重複模型日誌
@@ -469,13 +477,17 @@ foreach ($manifest in $manifestLocations) {
             $duplicateModels += $duplicateInfo
         } else {
             Write-StatusMessage "Info2" "Model already exists, skipping creation - $name"
+            $skippedCount++
         }
     } else {
         try {
             New-Item -ItemType SymbolicLink -Path $symlinkPath -Value $modelFile -ErrorAction Stop | Out-Null
+            $successCount++
+            $successFiles += $name
         } catch {
             Write-Host ""
             Write-StatusMessage "Error" "Failed to create symbolic link: $($_.Exception.Message)"
+            $errorCount++
         }
     }
     Write-Host ""
@@ -543,5 +555,22 @@ Write-Host "*********************" -ForegroundColor Gray
 Write-Host "Ollm Bridge complete." -ForegroundColor Green
 Write-Host "Set the Models Directory in LMStudio to: $(Split-Path $output_target_dir -Parent)" -ForegroundColor Yellow
 Write-Host ""
+
+if ($successCount -gt 0) {
+    Write-Host "Successfully created files:" -ForegroundColor Green
+    foreach ($file in $successFiles) {
+        Write-Host "  - $file" -ForegroundColor White
+    }
+    Write-Host ""
+}
+
+# Display execution statistics
+# 顯示執行統計
+Write-Host "Execution Statistics:" -ForegroundColor Cyan
+Write-Host "✓ Successfully created: $successCount symbolic links" -ForegroundColor Green
+Write-Host "⚠ Skipped existing: $skippedCount files" -ForegroundColor Yellow
+Write-Host "✗ Failed/Error: $errorCount files" -ForegroundColor Red
+Write-Host ""
+
 Write-Host "Press any key to exit..." -ForegroundColor Cyan
 Read-Host
