@@ -21,13 +21,13 @@ $lmstudio_target_dir = "$publicModels_dir\lmstudio"                   # LMStudio
 # Print the base directories to confirm the variables
 # 輸出基礎目錄信息：顯示所有配置的目錄路徑，用於確認設置正確
 Write-Host ""
-Write-Host "Confirming Directories:"
+Write-Host "Confirming Directories:" -ForegroundColor Cyan
 Write-Host ""
-Write-Host "Manifest Directories:"
-$manifest_dirs | ForEach-Object { Write-Host "  - $_" }
-Write-Host "Blob Directory: $blob_dir"
-Write-Host "Public Models Directory: $publicModels_dir"
-Write-Host "LMStudio Model Structure Directory: $lmstudio_target_dir"
+Write-Host "Manifest Directories:" -ForegroundColor Yellow
+$manifest_dirs | ForEach-Object { Write-Host "  - $_" -ForegroundColor White }
+Write-Host "Blob Directory: $blob_dir" -ForegroundColor White
+Write-Host "Public Models Directory: $publicModels_dir" -ForegroundColor White
+Write-Host "LMStudio Model Structure Directory: $lmstudio_target_dir" -ForegroundColor White
 
 
 # Check if the LMStudio target directory already exists, and delete it if so
@@ -35,32 +35,32 @@ Write-Host "LMStudio Model Structure Directory: $lmstudio_target_dir"
 if (Test-Path $lmstudio_target_dir) {
     Write-Host ""
     Remove-Item -Path $lmstudio_target_dir -Recurse -Force
-    Write-Host "Ollm Bridge Directory Reset."
+    Write-Host "Ollm Bridge Directory Reset." -ForegroundColor Magenta
 }
 
 # Ensure public models directory exists
 # 確保公共模型目錄存在：檢查或創建存儲橋接模型的基礎目錄
 if (Test-Path $publicModels_dir) {
     Write-Host ""
-    Write-Host "Public Models Directory Confirmed."
+    Write-Host "Public Models Directory Confirmed." -ForegroundColor Green
 } else {
     New-Item -Type Directory -Path $publicModels_dir
     Write-Host ""
-    Write-Host "Public Models Directory Created."
+    Write-Host "Public Models Directory Created." -ForegroundColor Green
 }
 
 
 # Explore all manifest directories and record the manifest file locations
 # 掃描所有 manifest 目錄並記錄有效的 manifest 文件位置
 Write-Host ""
-Write-Host "Exploring Manifest Directories:"
+Write-Host "Exploring Manifest Directories:" -ForegroundColor Cyan
 Write-Host ""
 $manifestLocations = @()  # 存儲找到的有效 manifest 文件路徑
 
 # 遍歷每個配置的 manifest 目錄
 foreach ($manifest_dir in $manifest_dirs) {
     if (Test-Path $manifest_dir) {
-        Write-Host "Processing directory: $manifest_dir"
+        Write-Host "Processing directory: $manifest_dir" -ForegroundColor Yellow
         # 遞歸獲取目錄中的所有文件（排除子目錄）
         $files = Get-ChildItem -Path $manifest_dir -Recurse -Force | Where-Object {$_.PSIsContainer -eq $false}
         
@@ -78,34 +78,34 @@ foreach ($manifest_dir in $manifest_dirs) {
                 # 驗證 JSON 是否具有 manifest 的預期結構（必須包含 config 和 layers 字段）
                 if ($obj.config -and $obj.layers) {
                     $manifestLocations += $path  # 添加到有效 manifest 列表
-                    Write-Host "  ✓ Valid manifest: $($file.Name)"
+                    Write-Host "  ✓ Valid manifest: $($file.Name)" -ForegroundColor Green
                 } else {
-                    Write-Host "  ✗ Invalid manifest structure: $($file.Name)"
+                    Write-Host "  ✗ Invalid manifest structure: $($file.Name)" -ForegroundColor Red
                 }
             } catch {
-                Write-Host "  ✗ Invalid JSON or unreadable file: $($file.Name) - $($_.Exception.Message)"
+                Write-Host "  ✗ Invalid JSON or unreadable file: $($file.Name) - $($_.Exception.Message)" -ForegroundColor Red
             }
         }
     } else {
-        Write-Host "Warning: Directory not found - $manifest_dir"
+        Write-Host "Warning: Directory not found - $manifest_dir" -ForegroundColor Red
     }
 }
 
 Write-Host ""
-Write-Host "File Locations:"
+Write-Host "File Locations:" -ForegroundColor Cyan
 Write-Host ""
-$manifestLocations | ForEach-Object { Write-Host $_ }
+$manifestLocations | ForEach-Object { Write-Host $_ -ForegroundColor Gray }
 
 
 # Parse through validated manifest files to get model info
 # 解析已驗證的 manifest 文件以提取模型信息
 Write-Host ""
-Write-Host "Processing $($manifestLocations.Count) valid manifest files..."
+Write-Host "Processing $($manifestLocations.Count) valid manifest files..." -ForegroundColor Cyan
 Write-Host ""
 
 # 遍歷每個有效的 manifest 文件
 foreach ($manifest in $manifestLocations) {
-    Write-Host "Processing manifest: $(Split-Path $manifest -Leaf)"
+    Write-Host "Processing manifest: $(Split-Path $manifest -Leaf)" -ForegroundColor Yellow
     
     # JSON is already validated, just parse it
     # JSON 已驗證，直接解析即可
@@ -164,10 +164,10 @@ foreach ($manifest in $manifestLocations) {
     $modelName = (Get-Item -Path $parentDir).Name
 
     Write-Host ""
-    Write-Host "Model Name is" $modelName
-    Write-Host "Quant is" $modelQuant
-    Write-Host "Extension is" $modelExt
-    Write-Host "Number of Parameters Trained on is" $modelTrainedOn
+    Write-Host "Model Name:" $modelName -ForegroundColor Green
+    Write-Host "Quantization:" $modelQuant -ForegroundColor Cyan
+    Write-Host "Format:" $modelExt -ForegroundColor Cyan
+    Write-Host "Parameters:" $modelTrainedOn -ForegroundColor Cyan
     Write-Host ""
 
 
@@ -175,7 +175,7 @@ foreach ($manifest in $manifestLocations) {
     # 檢查 LMStudio 主目錄是否存在，必要時創建
     if (-not (Test-Path -Path $lmstudio_target_dir)) {
         Write-Host ""
-        Write-Host "Creating LMStudio model structure directory..."
+        Write-Host "Creating LMStudio model structure directory..." -ForegroundColor Magenta
         New-Item -Type Directory -Path $lmstudio_target_dir
     }
 
@@ -183,7 +183,7 @@ foreach ($manifest in $manifestLocations) {
     # 檢查模型子目錄是否存在，必要時創建
     if (-not (Test-Path -Path $lmstudio_target_dir\$modelName)) {
         Write-Host ""
-        Write-Host "Creating $modelName directory..."
+        Write-Host "Creating $modelName directory..." -ForegroundColor Magenta
         New-Item -Type Directory -Path $lmstudio_target_dir\$modelName
     }
 
@@ -191,12 +191,12 @@ foreach ($manifest in $manifestLocations) {
     # 創建符號鏈接：將 Ollama 的實際模型文件鏈接到 LMStudio 兼容的結構中
     # 文件命名格式：模型名稱-參數數量-量化級別.擴展名
     Write-Host ""
-    Write-Host "Creating symbolic link for $modelFile..."
+    Write-Host "Creating symbolic link for $modelFile..." -ForegroundColor Yellow
     New-Item -ItemType SymbolicLink -Path "$lmstudio_target_dir\$modelName\$($modelName)-$($modelTrainedOn)-$($modelQuant).$($modelExt)" -Value $modelFile
 }
 
 Write-Host ""
 Write-Host ""
-Write-Host "*********************"
-Write-Host "Ollm Bridge complete."
-Write-Host "Set the Models Directory in LMStudio to: $lmstudio_target_dir" 
+Write-Host "*********************" -ForegroundColor Green
+Write-Host "Ollm Bridge complete." -ForegroundColor Green
+Write-Host "Set the Models Directory in LMStudio to: $lmstudio_target_dir" -ForegroundColor Yellow 
