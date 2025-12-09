@@ -539,4 +539,4 @@ Write-Host ""
 Write-Host ""
 Write-Host "*********************" -ForegroundColor Gray
 Write-Host "Ollm Bridge complete." -ForegroundColor Green
-Write-Host "Set the Models Directory in LMStudio to: $output_target_dir" -ForegroundColor Yellow 
+Write-Host "Set the Models Directory in LMStudio to: $(Split-Path $output_target_dir -Parent)" -ForegroundColor Yellow
