@@ -292,6 +292,7 @@ foreach ($manifest_dir in $manifest_dirs) {
         # 檢查每個文件是否為有效的 manifest 文件
         foreach ($file in $files) {
             $path = "$($file.DirectoryName)\$($file.Name)"
+            $parentFolder = $file.Directory.Name  # 獲取父資料夾名稱
             
             # Pre-filter JSON files by validating their structure
             # 通過驗證 JSON 結構來預過濾文件，確保只處理有效的 manifest
@@ -303,14 +304,11 @@ foreach ($manifest_dir in $manifest_dirs) {
                 # 驗證 JSON 是否具有 manifest 的預期結構（必須包含 config 和 layers 字段）
                 if ($obj.config -and $obj.layers) {
                     $manifestLocations += $path  # 添加到有效 manifest 列表
-                    $parentFolder = (Get-Item -Path $file.DirectoryName).Name
                     Write-Host "  [+] Valid manifest: $($parentFolder)\$($file.Name)" -ForegroundColor Green
                 } else {
-                    $parentFolder = (Get-Item -Path $file.DirectoryName).Name
                     Write-Host "  [-] Invalid manifest structure: $($parentFolder)\$($file.Name)" -ForegroundColor Red
                 }
             } catch {
-                $parentFolder = (Get-Item -Path $file.DirectoryName).Name
                 Write-Host "  [-] Invalid JSON or unreadable file: $($parentFolder)\$($file.Name) - $($_.Exception.Message)" -ForegroundColor Red
             }
         }
@@ -372,20 +370,13 @@ $duplicateModels = @()  # 存儲重複模型資訊
 $totalManifests = $manifestLocations.Count
 $currentCount = 0
 
-# 根據總數量決定補0位數
-if ($totalManifests -lt 100) {
-    # 2位數: 01, 02, 03...
-    $paddingFormat = "{0:D2}"
-} elseif ($totalManifests -lt 1000) {
-      # 3位數: 001, 002, 003...
-    $paddingFormat = "{0:D3}"
-} else {
-    $paddingFormat = "{0:D4}"
-}
+# 計算補零位數
+$digitCount = [math]::Ceiling([math]::Log10($totalManifests + 1))
+$paddingFormat = "{0:D$digitCount}"
 
 foreach ($manifest in $manifestLocations) {
     $currentCount++
-    # 動態補0對齊
+    # 動態補零對齊
     $paddedCount = $paddingFormat -f $currentCount
     Write-Host "[$paddedCount/$totalManifests] Processing manifest: $($manifest)" -ForegroundColor Gray
     
