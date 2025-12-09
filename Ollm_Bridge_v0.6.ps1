@@ -395,9 +395,11 @@ foreach ($manifest in $manifestLocations) {
         if ($layer.mediaType -like "*model") {
             $modelFile = Convert-DigestToBlobPath $layer.digest
         } elseif ($layer.mediaType -like "*template") {
-            $modelTemplate = Convert-DigestToBlobPath $layer.digest
+            # Template and params files are extracted but not used in current implementation
+            # $modelTemplate = Convert-DigestToBlobPath $layer.digest
         } elseif ($layer.mediaType -like "*params") {
-            $modelParams = Convert-DigestToBlobPath $layer.digest
+            # Template and params files are extracted but not used in current implementation
+            # $modelParams = Convert-DigestToBlobPath $layer.digest
         }
     }
 
