@@ -179,6 +179,11 @@ Write-Host ""
 Write-Host "Processing $($manifestLocations.Count) valid manifest files..." -ForegroundColor Cyan
 Write-Host ""
 
+# Initialize log file for duplicate models
+# 初始化重複模型日誌檔案
+$logFile = "$output_target_dir\log.md"
+$duplicateModels = @()  # 存儲重複模型資訊
+
 # 遍歷每個有效的 manifest 文件
 $totalManifests = $manifestLocations.Count
 $currentCount = 0
@@ -287,6 +292,26 @@ foreach ($manifest in $manifestLocations) {
     # 檢查符號鏈接是否已經存在
     if (Test-Path $symlinkPath) {
         Write-Host "[!] Warning: Model already exists, skipping creation - $name" -ForegroundColor Yellow
+        
+        # Get existing symlink target for comparison
+        # 獲取現有符號鏈接的目標進行比較
+        $existingTarget = (Get-Item $symlinkPath).Target
+        
+        if ($existingTarget -ne $modelFile) {
+            Write-Host "[!] Different source detected - Existing: $existingTarget" -ForegroundColor Red
+            Write-Host "[!] New source: $modelFile" -ForegroundColor Red
+            
+            # Add to duplicate models log
+            # 添加到重複模型日誌
+            $duplicateInfo = [PSCustomObject]@{
+                ModelName = $name
+                ExistingSource = $existingTarget
+                NewSource = $modelFile
+                ModelDir = $modelName
+                CreatedTime = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+            }
+            $duplicateModels += $duplicateInfo
+        }
     } else {
         try {
             New-Item -ItemType SymbolicLink -Path $symlinkPath -Value $modelFile -ErrorAction Stop | Out-Null
@@ -295,6 +320,62 @@ foreach ($manifest in $manifestLocations) {
         }
     }
     Write-Host ""
+}
+
+Write-Host ""
+
+# Generate duplicate models log if any duplicates found
+# 如果發現重複模型，生成日誌檔案
+if ($duplicateModels.Count -gt 0) {
+    Write-Host "Writing duplicate models log to: $logFile" -ForegroundColor Yellow
+    
+    $logContent = @"
+# Ollm Bridge Duplicate Models Log
+# Ollm Bridge 重複模型日誌
+
+Generated on: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+Total duplicate models found: $($duplicateModels.Count)
+
+## Duplicate Model Details
+## 重複模型詳細資訊
+
+"@
+
+    foreach ($duplicate in $duplicateModels) {
+        $logContent += @"
+
+### $($duplicate.ModelName)
+- **Model Directory:** $($duplicate.ModelDir)
+- **Existing Source:** $($duplicate.ExistingSource)
+- **New Source:** $($duplicate.NewSource)
+- **Detected Time:** $($duplicate.CreatedTime)
+
+---
+"@
+    }
+
+    $logContent += @"
+
+## Resolution Notes
+## 解決方案備註
+
+- Models with the same name but different sources may indicate:
+  - Different quantization levels with the same model name
+  - Different versions of the same model
+  - Corrupted or incomplete downloads
+- Review the above entries to determine which version to keep
+- Consider renaming models to avoid conflicts
+
+"@
+
+    # Write log to file
+    # 將日誌寫入檔案
+    $logContent | Out-File -FilePath $logFile -Encoding UTF8 -Force
+    
+    Write-Host "[!] $($duplicateModels.Count) duplicate model(s) detected and logged" -ForegroundColor Red
+    Write-Host "[!] Check $logFile for details" -ForegroundColor Yellow
+} else {
+    Write-Host "[+] No duplicate models found" -ForegroundColor Green
 }
 
 Write-Host ""
