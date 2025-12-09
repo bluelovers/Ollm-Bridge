@@ -55,7 +55,22 @@ foreach ($manifest_dir in $manifest_dirs) {
         
         foreach ($file in $files) {
             $path = "$($file.DirectoryName)\$($file.Name)"
-            $manifestLocations += $path
+            
+            # Pre-filter JSON files by validating their structure
+            try {
+                $json = Get-Content -Path $path
+                $obj = ConvertFrom-Json -InputObject $json
+                
+                # Validate that the JSON has the expected structure for a manifest
+                if ($obj.config -and $obj.layers) {
+                    $manifestLocations += $path
+                    Write-Host "  ✓ Valid manifest: $($file.Name)"
+                } else {
+                    Write-Host "  ✗ Invalid manifest structure: $($file.Name)"
+                }
+            } catch {
+                Write-Host "  ✗ Invalid JSON or unreadable file: $($file.Name) - $($_.Exception.Message)"
+            }
         }
     } else {
         Write-Host "Warning: Directory not found - $manifest_dir"
@@ -68,8 +83,15 @@ Write-Host ""
 $manifestLocations | ForEach-Object { Write-Host $_ }
 
 
-# Parse through json files to get model info
+# Parse through validated manifest files to get model info
+Write-Host ""
+Write-Host "Processing $($manifestLocations.Count) valid manifest files..."
+Write-Host ""
+
 foreach ($manifest in $manifestLocations) {
+    Write-Host "Processing manifest: $(Split-Path $manifest -Leaf)"
+    
+    # JSON is already validated, just parse it
     $json = Get-Content -Path $manifest
     $obj = ConvertFrom-Json -InputObject $json
 
