@@ -18,6 +18,41 @@ $publicModels_dir = "$env:USERPROFILE\publicmodels"                   # 公共�
 # LMStudio 目標目錄：存儲按 LMStudio 兼容結構組織的符號鏈接
 $lmstudio_target_dir = "$publicModels_dir\lmstudio"                   # LMStudio 將掃描此目錄來查找模型
 
+# Check administrative privileges for symbolic link creation
+# 檢查創建符號鏈接所需的系統權限
+Write-Host ""
+Write-Host "Checking Privileges:" -ForegroundColor Cyan
+Write-Host ""
+
+$currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+$principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+
+if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    Write-Host "⚠ Warning: Not running as Administrator" -ForegroundColor Yellow
+    Write-Host "  Symbolic link creation may fail without elevated privileges." -ForegroundColor Yellow
+    Write-Host "  Consider running this script as Administrator." -ForegroundColor Yellow
+    Write-Host ""
+} else {
+    Write-Host "✓ Running with Administrator privileges" -ForegroundColor Green
+    Write-Host ""
+}
+
+# Test symbolic link creation capability
+# 測試符號鏈接創建能力
+try {
+    $testLinkPath = "$env:TEMP\ollm_bridge_test_link"
+    New-Item -ItemType SymbolicLink -Path $testLinkPath -Value $env:TEMP -ErrorAction Stop | Out-Null
+    Remove-Item -Path $testLinkPath -Force -ErrorAction SilentlyContinue
+    Write-Host "✓ Symbolic link creation test passed" -ForegroundColor Green
+} catch {
+    Write-Host "✗ Symbolic link creation test failed: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "  Enable Developer Mode or run as Administrator to create symbolic links." -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "Continue anyway? (Press Enter to continue, Ctrl+C to exit)" -ForegroundColor Cyan
+    Read-Host
+}
+Write-Host ""
+
 # Print the base directories to confirm the variables
 # 輸出基礎目錄信息：顯示所有配置的目錄路徑，用於確認設置正確
 Write-Host ""
@@ -164,10 +199,10 @@ foreach ($manifest in $manifestLocations) {
     $modelName = (Get-Item -Path $parentDir).Name
 
     Write-Host ""
-    Write-Host "Model Name:" $modelName -ForegroundColor Green
-    Write-Host "Quantization:" $modelQuant -ForegroundColor Cyan
-    Write-Host "Format:" $modelExt -ForegroundColor Cyan
-    Write-Host "Parameters:" $modelTrainedOn -ForegroundColor Cyan
+    Write-Host "Model Name is" $modelName -ForegroundColor Green
+    Write-Host "Quant is" $modelQuant -ForegroundColor Cyan
+    Write-Host "Extension is" $modelExt -ForegroundColor Cyan
+    Write-Host "Number of Parameters Trained on is" $modelTrainedOn -ForegroundColor Cyan
     Write-Host ""
 
 
