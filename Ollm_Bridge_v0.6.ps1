@@ -277,11 +277,23 @@ foreach ($manifest in $manifestLocations) {
     # 創建符號鏈接：將 Ollama 的實際模型文件鏈接到 LMStudio 兼容的結構中
     # 文件命名格式：模型名稱-參數數量-量化級別.擴展名
     $name = "$($modelName)-$($modelTrainedOn)-$($modelQuant).$($modelExt)"
+    $symlinkPath = "$output_target_dir\$modelName\$($name)"
 
     Write-Host ""
     Write-Host "Creating symbolic link for $name"
     Write-Host "$modelFile" -ForegroundColor Gray
-    New-Item -ItemType SymbolicLink -Path "$output_target_dir\$modelName\$($name)" -Value $modelFile | Out-Null
+    
+    # Check if symbolic link already exists
+    # 檢查符號鏈接是否已經存在
+    if (Test-Path $symlinkPath) {
+        Write-Host "[!] Warning: Model already exists, skipping creation - $name" -ForegroundColor Yellow
+    } else {
+        try {
+            New-Item -ItemType SymbolicLink -Path $symlinkPath -Value $modelFile -ErrorAction Stop | Out-Null
+        } catch {
+            Write-Host "[-] Failed to create symbolic link: $($_.Exception.Message)" -ForegroundColor Red
+        }
+    }
     Write-Host ""
 }
 
