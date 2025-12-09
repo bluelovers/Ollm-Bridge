@@ -303,12 +303,15 @@ foreach ($manifest_dir in $manifest_dirs) {
                 # 驗證 JSON 是否具有 manifest 的預期結構（必須包含 config 和 layers 字段）
                 if ($obj.config -and $obj.layers) {
                     $manifestLocations += $path  # 添加到有效 manifest 列表
-                    Write-Host "  [+] Valid manifest: $($file.Name)" -ForegroundColor Green
+                    $parentFolder = (Get-Item -Path $file.DirectoryName).Name
+                    Write-Host "  [+] Valid manifest: $($parentFolder)\$($file.Name)" -ForegroundColor Green
                 } else {
-                    Write-Host "  [-] Invalid manifest structure: $($file.Name)" -ForegroundColor Red
+                    $parentFolder = (Get-Item -Path $file.DirectoryName).Name
+                    Write-Host "  [-] Invalid manifest structure: $($parentFolder)\$($file.Name)" -ForegroundColor Red
                 }
             } catch {
-                Write-Host "  [-] Invalid JSON or unreadable file: $($file.Name) - $($_.Exception.Message)" -ForegroundColor Red
+                $parentFolder = (Get-Item -Path $file.DirectoryName).Name
+                Write-Host "  [-] Invalid JSON or unreadable file: $($parentFolder)\$($file.Name) - $($_.Exception.Message)" -ForegroundColor Red
             }
         }
     } else {
