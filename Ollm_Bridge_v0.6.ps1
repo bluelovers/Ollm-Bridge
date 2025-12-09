@@ -10,24 +10,36 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 # Define the directory variables
 # 定義目錄變數：設置腳本運行所需的所有路徑變數
+
+# Support custom OLLAMA_MODELS environment variable
+# 支援 OLLAMA_MODELS 環境變數來自定義 Ollama 目錄
+$ollama_base_dir = if ($env:OLLAMA_MODELS) { 
+    # 如果 OLLAMA_MODELS 已經包含 \models，則直接使用；否則添加 \models
+    if ($env:OLLAMA_MODELS -like "*\models*") {
+        $env:OLLAMA_MODELS
+    } else {
+        "$env:OLLAMA_MODELS\models"
+    }
+} else { 
+    "$env:USERPROFILE\.ollama\models" 
+}
+
 $manifest_dirs = @(
     # Ollama 官方倉庫的 manifest 文件目錄
-    "$env:USERPROFILE\.ollama\models\manifests\registry.ollama.ai"
+    "$ollama_base_dir\manifests\registry.ollama.ai"
 
     # Add additional manifest directory paths here if needed
     # Example: "D:\AlternativeOllama\models\manifests\registry.ollama.ai"
 
     # Hugging Face 模型的 manifest 文件目錄
-    "$env:USERPROFILE\.ollama\models\manifests\hf.co"
+    "$ollama_base_dir\manifests\hf.co"
 )
 # Ollama 實際存儲模型文件的目錄（blob 存儲）
-$blob_dir = "$env:USERPROFILE\.ollama\models\blobs"
-# 公共模型目錄，用於存儲橋接後的模型
-$publicModels_dir = "$env:USERPROFILE\publicmodels"
+$blob_dir = "$ollama_base_dir\blobs"
 
 # This path stores symbolic links to model files organized in LMStudio-compatible structure
-# LMStudio 目標目錄：存儲按 LMStudio 兼容結構組織的符號鏈接
-$lmstudio_target_dir = "$publicModels_dir\lmstudio"
+# 輸出目標目錄：存儲按 LMStudio 兼容結構組織的符號鏈接
+$output_target_dir = "$env:USERPROFILE\publicmodels\lmstudio"
 
 # Check administrative privileges for symbolic link creation
 # 檢查創建符號鏈接所需的系統權限
@@ -91,30 +103,25 @@ Write-Host ""
 Write-Host ""
 Write-Host "Confirming Directories:" -ForegroundColor Cyan
 Write-Host ""
+Write-Host "Ollama Base Directory: $ollama_base_dir" -ForegroundColor White
+if ($env:OLLAMA_MODELS) {
+    Write-Host "  (Using custom OLLAMA_MODELS environment variable)" -ForegroundColor Yellow
+    Write-Host "    Path: $env:OLLAMA_MODELS" -ForegroundColor Gray
+} else {
+    Write-Host "  (Using default user profile directory)" -ForegroundColor Gray
+}
 Write-Host "Manifest Directories:" -ForegroundColor Yellow
 $manifest_dirs | ForEach-Object { Write-Host "  - $_" -ForegroundColor White }
 Write-Host "Blob Directory: $blob_dir" -ForegroundColor White
-Write-Host "Public Models Directory: $publicModels_dir" -ForegroundColor White
-Write-Host "LMStudio Model Structure Directory: $lmstudio_target_dir" -ForegroundColor White
+Write-Host "Output Target LMStudio Model Structure Directory: $output_target_dir" -ForegroundColor White
 
 
-# Check if the LMStudio target directory already exists, and delete it if so
-# 檢查並重置 LMStudio 目標目錄：確保每次運行都創建乾淨的符號鏈接結構
-if (Test-Path $lmstudio_target_dir) {
+# Check if the output target directory already exists, and delete it if so
+# 檢查並重置輸出目標目錄：確保每次運行都創建乾淨的符號鏈接結構
+if (Test-Path $output_target_dir) {
     Write-Host ""
-    Remove-Item -Path $lmstudio_target_dir -Recurse -Force
+    Remove-Item -Path $output_target_dir -Recurse -Force
     Write-Host "Ollm Bridge Directory Reset." -ForegroundColor Magenta
-}
-
-# Ensure public models directory exists
-# 確保公共模型目錄存在：檢查或創建存儲橋接模型的基礎目錄
-if (Test-Path $publicModels_dir) {
-    Write-Host ""
-    Write-Host "Public Models Directory Confirmed." -ForegroundColor Green
-} else {
-    New-Item -Type Directory -Path $publicModels_dir | Out-Null
-    Write-Host ""
-    Write-Host "Public Models Directory Created." -ForegroundColor Green
 }
 
 
@@ -165,8 +172,8 @@ Write-Host ""
 $manifestLocations | ForEach-Object { Write-Host $_ -ForegroundColor Gray }
 
 # Check if the directory exists and create it if necessary
-# 檢查 LMStudio 主目錄是否存在，必要時創建
-if (-not (Test-Path -Path $lmstudio_target_dir)) {
+# 檢查輸出目標目錄是否存在，必要時創建
+if (-not (Test-Path -Path $output_target_dir)) {
     Write-Host ""
     Write-Host "Creating LMStudio model structure directory..." -ForegroundColor Magenta
     New-Item -Type Directory -Path $lmstudio_target_dir | Out-Null
@@ -266,10 +273,10 @@ foreach ($manifest in $manifestLocations) {
 
     # Check if the subdirectory exists and create it if necessary
     # 檢查模型子目錄是否存在，必要時創建
-    if (-not (Test-Path -Path $lmstudio_target_dir\$modelName)) {
+    if (-not (Test-Path -Path $output_target_dir\$modelName)) {
         # Write-Host ""
         # Write-Host "Creating $modelName directory..." -ForegroundColor Magenta
-        New-Item -Type Directory -Path $lmstudio_target_dir\$modelName | Out-Null
+        New-Item -Type Directory -Path $output_target_dir\$modelName | Out-Null
     }
 
     # Create the symbolic link
@@ -280,7 +287,7 @@ foreach ($manifest in $manifestLocations) {
     Write-Host ""
     Write-Host "Creating symbolic link for $name"
     Write-Host "$modelFile" -ForegroundColor Gray
-    New-Item -ItemType SymbolicLink -Path "$lmstudio_target_dir\$modelName\$($name)" -Value $modelFile | Out-Null
+    New-Item -ItemType SymbolicLink -Path "$output_target_dir\$modelName\$($name)" -Value $modelFile | Out-Null
     Write-Host ""
 }
 
@@ -288,4 +295,4 @@ Write-Host ""
 Write-Host ""
 Write-Host "*********************" -ForegroundColor Gray
 Write-Host "Ollm Bridge complete." -ForegroundColor Green
-Write-Host "Set the Models Directory in LMStudio to: $lmstudio_target_dir" -ForegroundColor Yellow 
+Write-Host "Set the Models Directory in LMStudio to: $output_target_dir" -ForegroundColor Yellow 
