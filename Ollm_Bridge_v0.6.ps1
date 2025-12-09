@@ -115,16 +115,6 @@ $manifest_dirs | ForEach-Object { Write-Host "  - $_" -ForegroundColor White }
 Write-Host "Blob Directory: $blob_dir" -ForegroundColor White
 Write-Host "Output Target LMStudio Model Structure Directory: $output_target_dir" -ForegroundColor White
 
-
-# Check if the output target directory already exists, and delete it if so
-# 檢查並重置輸出目標目錄：確保每次運行都創建乾淨的符號鏈接結構
-if (Test-Path $output_target_dir) {
-    Write-Host ""
-    Remove-Item -Path $output_target_dir -Recurse -Force
-    Write-Host "Ollm Bridge Directory Reset." -ForegroundColor Magenta
-}
-
-
 # Explore all manifest directories and record the manifest file locations
 # 掃描所有 manifest 目錄並記錄有效的 manifest 文件位置
 Write-Host ""
@@ -171,13 +161,17 @@ Write-Host "File Locations:" -ForegroundColor Cyan
 Write-Host ""
 $manifestLocations | ForEach-Object { Write-Host $_ -ForegroundColor Gray }
 
-# Check if the directory exists and create it if necessary
-# 檢查輸出目標目錄是否存在，必要時創建
-if (-not (Test-Path -Path $output_target_dir)) {
+# Ensure output target directory is clean and ready
+# 確保輸出目標目錄乾淨且準備就緒
+if (Test-Path $output_target_dir) {
     Write-Host ""
-    Write-Host "Creating LMStudio model structure directory..." -ForegroundColor Magenta
-    New-Item -Type Directory -Path $lmstudio_target_dir | Out-Null
+    Remove-Item -Path $output_target_dir -Recurse -Force
+    Write-Host "Ollm Bridge Directory Reset." -ForegroundColor Magenta
 }
+
+Write-Host ""
+Write-Host "Creating LMStudio model structure directory..." -ForegroundColor Magenta
+New-Item -Type Directory -Path $output_target_dir -Force | Out-Null
 
 # Parse through validated manifest files to get model info
 # 解析已驗證的 manifest 文件以提取模型信息
