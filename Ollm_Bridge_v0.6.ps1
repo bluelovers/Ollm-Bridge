@@ -41,6 +41,47 @@ $blob_dir = "$ollama_base_dir\blobs"
 # 輸出目標目錄：存儲按 LMStudio 兼容結構組織的符號鏈接
 $output_target_dir = "$env:USERPROFILE\publicmodels\lmstudio"
 
+# Safety switch to control directory deletion behavior
+# 安全開關，控制目錄刪除行為
+# $null/未設定 = 手動確認, $true = 自動跳過刪除, $false = 直接執行
+$SAFE_MODE = $null
+
+# Function to determine deletion action based on SAFE_MODE
+# 根據 SAFE_MODE 決定刪除操作的函數
+function Get-DeletionAction {
+    param(
+        [string]$Operation,
+        [string]$TargetPath
+    )
+    
+    if ($null -eq $SAFE_MODE) {
+        # 未設定：手動確認
+        Write-Host ""
+        Write-Host "🚨 SAFETY WARNING 🚨" -ForegroundColor Red
+        Write-Host "Operation: $Operation" -ForegroundColor Yellow
+        Write-Host "Target: $TargetPath" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "This will permanently delete the existing directory and all its contents." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "Type 'DELETE' to confirm, or press Enter to cancel:" -ForegroundColor Cyan
+        $confirmation = Read-Host
+        
+        if ($confirmation -ne "DELETE") {
+            Write-StatusMessage "Warning" "Operation cancelled by user"
+            return "CANCEL"
+        }
+        return "DELETE"
+    }
+    elseif ($SAFE_MODE -eq $true) {
+        # $true：自動忽略刪除行為
+        return "SKIP"
+    }
+    else {
+        # $false：直接執行操作
+        return "DELETE"
+    }
+}
+
 # Helper function to convert sha256 digest to blob path
 # 輔助函數：將 sha256 摘要轉換為 blob 路徑
 function Convert-DigestToBlobPath {
@@ -115,9 +156,28 @@ function Write-StatusMessage {
     }
 }
 
+# Display safety mode status
+# 顯示安全模式狀態
+Write-Host ""
+Write-Host "Safety Configuration:" -ForegroundColor Cyan
+Write-Host ""
+if ($null -eq $SAFE_MODE) {
+    Write-StatusMessage "Warning" "SAFE MODE NOT SET - Manual confirmation required"
+    Write-Host "  Set `$SAFE_MODE = `$true to skip deletion" -ForegroundColor Gray
+    Write-Host "  Set `$SAFE_MODE = `$false for automatic operations" -ForegroundColor Gray
+} elseif ($SAFE_MODE -eq $true) {
+    Write-StatusMessage "Warning" "SAFE MODE ENABLED - Directory deletion will be skipped"
+    Write-Host "  Set `$SAFE_MODE = `$null for manual confirmation" -ForegroundColor Gray
+    Write-Host "  Set `$SAFE_MODE = `$false for automatic operations" -ForegroundColor Gray
+} else {
+    Write-StatusMessage "Warning" "SAFE MODE DISABLED - Operations will run without confirmation"
+    Write-Host "  Set `$SAFE_MODE = `$null for manual confirmation" -ForegroundColor Gray
+    Write-Host "  Set `$SAFE_MODE = `$true to skip deletion" -ForegroundColor Gray
+}
+Write-Host ""
+
 # Check administrative privileges for symbolic link creation
 # 檢查創建符號鏈接所需的系統權限
-Write-Host ""
 Write-Host "Checking Privileges:" -ForegroundColor Cyan
 Write-Host ""
 
@@ -228,14 +288,35 @@ $manifestLocations | ForEach-Object { Write-Host $_ -ForegroundColor Gray }
 # Ensure output target directory is clean and ready
 # 確保輸出目標目錄乾淨且準備就緒
 if (Test-Path $output_target_dir) {
-    Write-Host ""
-    Remove-Item -Path $output_target_dir -Recurse -Force
-    Write-Host "Ollm Bridge Directory Reset." -ForegroundColor Magenta
+    $action = Get-DeletionAction "Reset Output Directory" $output_target_dir
+    
+    switch ($action) {
+        "DELETE" {
+            Write-Host ""
+            Remove-Item -Path $output_target_dir -Recurse -Force
+            Write-StatusMessage "Success" "Ollm Bridge Directory Reset"
+        }
+        "SKIP" {
+            Write-Host ""
+            Write-StatusMessage "Info" "Skipping directory reset (SAFE_MODE = true)"
+            Write-Host ""
+            Write-Host "NOTE: Existing symbolic links will be checked for duplicates." -ForegroundColor Yellow
+        }
+        "CANCEL" {
+            Write-Host ""
+            Write-StatusMessage "Info" "Skipping directory reset, keeping existing contents"
+            Write-Host ""
+            Write-Host "NOTE: Existing symbolic links will be checked for duplicates." -ForegroundColor Yellow
+            Write-Host "Set SAFE_MODE = `$false to skip this confirmation in future runs." -ForegroundColor Gray
+        }
+    }
+} else {
+    New-Item -Type Directory -Path $output_target_dir -Force | Out-Null
 }
 
+
 Write-Host ""
-Write-Host "Creating LMStudio model structure directory..." -ForegroundColor Magenta
-New-Item -Type Directory -Path $output_target_dir -Force | Out-Null
+Write-StatusMessage "Processing" "Creating LMStudio model structure directory..."
 
 # Parse through validated manifest files to get model info
 # 解析已驗證的 manifest 文件以提取模型信息
