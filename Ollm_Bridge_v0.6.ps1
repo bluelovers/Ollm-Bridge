@@ -1,10 +1,13 @@
-﻿# Ollm Bridge v 0.6
+# Ollm Bridge v 0.6
 # Ollm Bridge aims to create a structure of directories and symlinks to make Ollama models more easily accessible to LMStudio users.
 
 # Define the directory variables
 $manifest_dir = "$env:USERPROFILE\.ollama\models\manifests\registry.ollama.ai"
 $blob_dir = "$env:USERPROFILE\.ollama\models\blobs"
 $publicModels_dir = "$env:USERPROFILE\publicmodels"
+
+# This path stores symbolic links to model files organized in LMStudio-compatible structure
+$lmstudio_target_dir = "$publicModels_dir\lmstudio"
 
 # Print the base directories to confirm the variables
 Write-Host ""
@@ -13,12 +16,13 @@ Write-Host ""
 Write-Host "Manifest Directory: $manifest_dir"
 Write-Host "Blob Directory: $blob_dir"
 Write-Host "Public Models Directory: $publicModels_dir"
+Write-Host "LMStudio Model Structure Directory: $lmstudio_target_dir"
 
 
-# Check if the $publicmodels\lmstudio directory already exists, and delete it if so
-if (Test-Path $publicModels_dir\lmstudio) {
+# Check if the LMStudio target directory already exists, and delete it if so
+if (Test-Path $lmstudio_target_dir) {
     Write-Host ""
-    Remove-Item -Path $publicModels_dir\lmstudio -Recurse -Force
+    Remove-Item -Path $lmstudio_target_dir -Recurse -Force
     Write-Host "Ollm Bridge Directory Reset."
 }
 
@@ -103,27 +107,27 @@ foreach ($manifest in $manifestLocations) {
 
 
     # Check if the directory exists and create it if necessary
-    if (-not (Test-Path -Path $publicModels_dir\lmstudio)) {
+    if (-not (Test-Path -Path $lmstudio_target_dir)) {
         Write-Host ""
-        Write-Host "Creating lmstudio directory..."
-        New-Item -Type Directory -Path $publicModels_dir\lmstudio
+        Write-Host "Creating LMStudio model structure directory..."
+        New-Item -Type Directory -Path $lmstudio_target_dir
     }
 
     # Check if the subdirectory exists and create it if necessary
-    if (-not (Test-Path -Path $publicModels_dir\lmstudio\$modelName)) {
+    if (-not (Test-Path -Path $lmstudio_target_dir\$modelName)) {
         Write-Host ""
         Write-Host "Creating $modelName directory..."
-        New-Item -Type Directory -Path $publicModels_dir\lmstudio\$modelName
+        New-Item -Type Directory -Path $lmstudio_target_dir\$modelName
     }
 
     # Create the symbolic link
     Write-Host ""
     Write-Host "Creating symbolic link for $modelFile..."
-    New-Item -ItemType SymbolicLink -Path "$publicModels_dir\lmstudio\$modelName\$($modelName)-$($modelTrainedOn)-$($modelQuant).$($modelExt)" -Value $modelFile
+    New-Item -ItemType SymbolicLink -Path "$lmstudio_target_dir\$modelName\$($modelName)-$($modelTrainedOn)-$($modelQuant).$($modelExt)" -Value $modelFile
 }
 
 Write-Host ""
 Write-Host ""
 Write-Host "*********************"
 Write-Host "Ollm Bridge complete."
-Write-Host "Set the Models Directory in LMStudio to"$publicModels_dir"\lmstudio" 
+Write-Host "Set the Models Directory in LMStudio to: $lmstudio_target_dir" 
